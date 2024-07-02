@@ -99,4 +99,46 @@ make sure to get the date in date format'
 
 response = get_completion_from_messages(messages, temperature=0)
 print(response)
-    
+
+from sendgrid import SendGridAPIClient
+from sendgrid.helpers.mail import Mail
+
+api_key = os.environ.get('SENDGRID_API_KEY') 
+sg = SendGridAPIClient(api_key)
+data = json.loads(response)
+
+# Email details
+from_email = 'info@fortis.com'
+to_email = data['email_address']
+subject = 'Appointment Confirmation - Fortis Hospital'
+prompt = f"""
+create a short mail confirmation from Fortis Hospital. First greet the customer.\
+make sure to include all the deatils enclosed in three backticks in a tabular format readable by email client to display. Be polite.\
+Ask to reach customer support team for any changes or enquiry.\
+customer support team address is "customer-support@fortis.com""\
+sign the mail as Fortis AI agent\
+```{response}```"""
+content = get_completion(prompt)
+
+def get_completion(prompt, model="gpt-3.5-turbo"):
+    messages = [{"role": "user", "content": prompt}]
+    response = openai.ChatCompletion.create(
+        model=model,
+        messages=messages,
+        temperature=0, # this is the degree of randomness of the model's output
+    )
+    return response.choices[0].message["content"]
+
+# Create email object
+message = Mail(
+    from_email=from_email,
+    to_emails=to_email,
+    subject=subject,
+    html_content=content)
+
+# Send email
+try:
+    response = sg.send(message)
+    print(f"Email sent successfully! Status code: {response.status_code}")
+except Exception as e:
+    print(f"Error sending email: {e}")
