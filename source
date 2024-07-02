@@ -1,0 +1,102 @@
+import os
+import openai
+import panel as pn  # GUI
+from dotenv import load_dotenv, find_dotenv
+_ = load_dotenv(find_dotenv()) # read local .env file
+
+openai.api_key  = os.getenv('OPENAI_API_KEY')
+
+def get_completion_from_messages(messages, model="gpt-3.5-turbo", temperature=0):
+    response = openai.ChatCompletion.create(
+        model=model,
+        messages=messages,
+        temperature=temperature, # this is the degree of randomness of the model's output
+    )
+#     print(str(response.choices[0].message))
+    return response.choices[0].message["content"]
+
+  def collect_msgs():
+      prompt = inp.value_input
+      inp.value = ''
+      context.append({'role':'user', 'content':f"{prompt}"})
+      response = get_completion_from_messages(context)
+      context.append({'role':'assistant', 'content':f"{response}"})
+      panels.append(
+        pn.Row('User:', pn.pane.Markdown(prompt, width=600)))
+      panels.append(
+        pn.Row('Assistant:', pn.pane.Markdown(response, width=600, style={'background-color': '#F6F6F6'})))
+ 
+      return pn.Column(*panels)
+      
+      
+pn.extension()
+
+panels = [] # collect display 
+
+context = [ {'role':'system', 'content':"""
+You are a scheduling bot which is trying to book a doctor's appointment at Fortis Hospital.\
+You first greet the customer and ask for which department.\
+Different departments:\
+1. General physician\
+2. Gynacologist\
+3. ENT\
+4. Dermitology\
+Display this along with asking for department\
+Ask for which day the customer wants to schdule appointment.\
+Display the available doctors for that day in that department along with their office hours.\
+display the available slots for that doctor. One slot period is 30 mins.\
+Ask the customer which slot he wants to choose.\
+If the customer doesnt have a preference, choose the doctor who has less appointments for that day.\
+If the slot is available, go ahead. Else ask the customer to choose a different slot.\
+If the doctor is booked for the whole day, ask the customer to choose a different doctor.\
+Ask the customer for 1.FUll name 2.phone number 3.email address. Ask these one by one.\
+You wait to collect the entire order, then summarize it and check for a final time if the slot and details are correct.\
+after confirming, book the slot\
+You respond in a short, very conversational friendly style. \
+Doctors in General physician department:\
+1. Arun Yadav\
+2. Sheela Naik\
+3. Sharada Nair\
+All these doctors have working hours from 10am to 1pm and then 3pm to 6pm\
+Doctors in Gynacologist department:\
+1. Subash Bose with working hours 9am to 2pm.\
+2. Sahana Hegde with working hours from 10am to 1pm and then 3pm to 6pm\
+3. Arya S with working hours 2pm to 7pm\
+Doctors in ENT department:\
+1.  Suresh Bhat\
+2. Rekha Advani\
+3. Siddharth Malhotra\
+These doctors with working hours from 9:30am to 2pm and from 4pm to 7pm\
+Doctors in Dermitology department:\
+1. Karan Johar\
+2. Varun Kaushal\
+3. Siddhant Bhatt with working hours from 9am to 2pm\
+Display the doctors and working hours in a tabular format\
+All the doctors work from monday to friday only. If a customer tries to book \
+for weekend, ask him politely to choose a weekday\
+At the end, display a unique token id for reference. Token id are serial numbers starting from 1 for that day.
+"""} ]
+inp = pn.widgets.TextInput(value="Hi", placeholder='Enter text here…')
+button_conversation = pn.widgets.Button(name="Chat!")
+
+interactive_conversation = pn.bind(collect_messages, button_conversation)
+
+dashboard = pn.Column(
+    inp,
+    pn.Row(button_conversation),
+    pn.panel(interactive_conversation, loading_indicator=True, height=300),
+)
+
+dashboard
+
+messages =  context.copy()
+messages.append(
+{'role':'system', 'content':'create a json summary of the above booking. Include 1)full name 2)doctor chosen\
+3) slot 4)token number 5) email address 6) date. \
+make sure to get the date in date format'
+},    
+)
+
+response = get_completion_from_messages(messages, temperature=0)
+print(response)
+    
